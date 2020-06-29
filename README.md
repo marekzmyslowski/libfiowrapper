@@ -65,3 +65,23 @@ For the memory fuzzing first the LD_LIBRARY_PATH needs to be set for the directo
 ```
 afl-fuzz -i ./input -o ./output -- ./examples/mem-fuzz-demo @@
 ```
+## Modifing code
+The code needs to be modify by adding few calls from the library. Just after __AFL_FUZZ_INIT add two function declarations:
+```
+__AFL_FUZZ_INIT();
+extern void set_memory_size(ssize_t size);
+extern void set_memory_ptr(unsigned char *buffer);
+```
+
+Before the AFL loop initialize the memory pointer:
+```
+set_memory_ptr(__AFL_FUZZ_TESTCASE_BUF);
+```
+
+Each iteration, the size needs to be set:
+```
+  while (__AFL_LOOP(1000)) {
+    // Set the file size.
+    set_memory_size(__AFL_FUZZ_TESTCASE_LEN);
+```
+
