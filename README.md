@@ -1,0 +1,67 @@
+# libfiowrapper
+
+This library was created to help fuzzing application that are reading data from the file. It hooks file calls and replaces it with memory access.
+
+Two libraries are available:
+
+libfioinfo.so - this library just collects the statistics of different file calls that are used in the application
+
+libfiowrapper.so - this library is used to replace file function calls with just memory access.
+
+## Building
+To build just run:
+```
+make
+```
+
+To display more information build debug version:
+```
+make debug
+```
+
+The examples are available inside the ./example directory. To build:
+```
+cd ./examples
+make
+```
+
+## Running Examples
+The example directory, after build, will containe 3 application:
+- info-demo - this application is just compailed with the clang. 
+- file-fuzz-demo - this application is compiled with afl-clang-fast. It can be used to run fuzzing with simple input file.
+- mem-fuzz-demo - this applicaiton is compiled with persistend memory mode with the libfiowrapper library to hook all the f* stdio functions.
+
+To collect information:
+```
+/research/libfiowrapper$ LD_PRELOAD=/research/libfiowrapper/libfioinfo.so ./examples/info-demo ./examples/input/sample
+===========================================
+                libfioinfo
+Version: 0.1
+Author: Marek Zmysłowski
+===========================================
+
+one
+two
+three
+===========================================
+        File calls statistics:
+fopen:  1
+fwrite: 0 - unlocked: 0
+fputc:  0 - unlocked: 0
+fputs:  0 - unlocked: 0
+fread:  0 - unlocked: 0
+fgetc:  4 - unlocked: 0
+fgets:  0 - unlocked: 0
+fseek:  0
+fclose: 1
+
+```
+For the regular fuzzing with files run the file-fuzz-demo:
+```
+afl-fuzz -i ./input -o ./output -- ./examples/file-fuzz-demo @@
+```
+
+For the memory fuzzing first the LD_LIBRARY_PATH needs to be set for the directory where the libfiowrapper.so is located.
+```
+afl-fuzz -i ./input -o ./output -- ./examples/mem-fuzz-demo @@
+```
