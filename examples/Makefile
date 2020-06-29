@@ -1,5 +1,5 @@
 CC := clang
-AFLCC := /home/marian/Desktop/AFLplusplus-dev/afl-clang-fast
+AFLCC := afl-clang-fast
 LDFLAGS := -L../ -lfiowrapper
 
 all: info-demo file-fuzz-demo mem-fuzz-demo

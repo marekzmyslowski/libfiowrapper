@@ -63,6 +63,7 @@ afl-fuzz -i ./input -o ./output -- ./examples/file-fuzz-demo @@
 
 For the memory fuzzing first the LD_LIBRARY_PATH needs to be set for the directory where the libfiowrapper.so is located.
 ```
+export LD_LIBRARY_PATH=./
 afl-fuzz -i ./input -o ./output -- ./examples/mem-fuzz-demo @@
 ```
 ## Modifing code
