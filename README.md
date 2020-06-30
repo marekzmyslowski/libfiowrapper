@@ -87,7 +87,7 @@ Each iteration, the size needs to be set:
 ```
 ## Real Live Example 
 ### libpng
-To build libpng as an example please read [examples\demo\libpng\README.md](examples\demo\libpng\README.md)
+To build libpng as an example please read [examples/libpng/README.md](examples/libpng)
 
 ## Questions and Feedback
 If you have any questions or feedback, please send me an email to marekzmyslowski@poczta.onet.pl
