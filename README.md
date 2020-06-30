@@ -19,17 +19,18 @@ To display more information build debug version:
 make debug
 ```
 
-The examples are available inside the ./example directory. To build:
+The demo applications are available inside the ```./examples``` directory. To build them just run:
 ```
-cd ./examples
+cd ./examples/demo
 make
 ```
 
-## Running Examples
-The example directory, after build, will containe 3 application:
+## Running Demo Apps
+The examples\demo directory, after build, will containe 3 application:
 - info-demo - this application is just compailed with the clang. 
 - file-fuzz-demo - this application is compiled with afl-clang-fast. It can be used to run fuzzing with simple input file.
-- mem-fuzz-demo - this applicaiton is compiled with persistend memory mode with the libfiowrapper library to hook all the f* stdio functions.
+- per-fuzz-demo - this application is compiled with simple persistent mode.
+- mem-fuzz-demo - this applicaiton is compiled with persistend mode with shared memory with the libfiowrapper library to hook all the f* stdio functions.
 
 To collect information:
 ```
