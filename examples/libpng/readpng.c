@@ -318,14 +318,18 @@ int main(int argc, char *argv[])
     FILE *infile;
     unsigned long h,w;
     uch red, green, blue;
+    int pChannels;
+    ulg pRowbytes;
     // Set the memory pointer
     set_memory_ptr(__AFL_FUZZ_TESTCASE_BUF);
     while (__AFL_LOOP(65535)) {
         // Set the file size.
         set_memory_size(__AFL_FUZZ_TESTCASE_LEN);
+        image_data = NULL;
         infile = fopen(argv[1], "r");
         if (!readpng_init(infile, &w, &h)) {
             readpng_get_bgcolor(&red, &green, &blue);
+            image_data = readpng_get_image((2.2*1.0), &pChannels, &pRowbytes);
             readpng_cleanup(1);
         }
     }
