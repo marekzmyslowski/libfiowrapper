@@ -38,6 +38,8 @@ extern void set_memory_size(ssize_t size);
 extern void set_memory_ptr(unsigned char *buffer);
 #endif
 
+
+
 /* Main entry point. */
 
 int main(int argc, char **argv) {
@@ -55,9 +57,13 @@ int main(int argc, char **argv) {
     set_memory_ptr(__AFL_FUZZ_TESTCASE_BUF);
 
 
-  while (__AFL_LOOP(2147483647)) {
+  while (__AFL_LOOP(1000)) {
     // Set the file size.
     set_memory_size(__AFL_FUZZ_TESTCASE_LEN);
+#endif
+#ifdef AFL_PERSISTENT
+  __AFL_INIT();
+  while (__AFL_LOOP(1000)) {
 #endif
     file = fopen(argv[1], "r");
     if (fgetc(file) == 'f') {
@@ -93,7 +99,7 @@ int main(int argc, char **argv) {
     }
     fclose(file);
     /*** END PLACEHOLDER CODE ***/
-#ifdef AFL_MEMORY
+#if defined AFL_MEMORY || defined AFL_PERSISTENT
   }
 #endif
   /* Once the loop is exited, terminate normally - AFL will restart the process

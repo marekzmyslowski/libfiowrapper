@@ -85,4 +85,9 @@ Each iteration, the size needs to be set:
     // Set the file size.
     set_memory_size(__AFL_FUZZ_TESTCASE_LEN);
 ```
+## Real Live Example 
+### libpng
+To build libpng as an example please read [examples\demo\libpng\README.md](examples\demo\libpng\README.md)
 
+## Questions and Feedback
+If you have any questions or feedback, please send me an email to marekzmyslowski@poczta.onet.pl
