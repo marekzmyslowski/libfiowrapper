@@ -32,9 +32,11 @@ The examples\demo directory, after build, will containe 3 application:
 - per-fuzz-demo - this application is compiled with simple persistent mode.
 - mem-fuzz-demo - this applicaiton is compiled with persistend mode with shared memory with the libfiowrapper library to hook all the f* stdio functions.
 
+Bellow commands needs to be run from the examples/demo directory.
+
 To collect information:
 ```
-/research/libfiowrapper$ LD_PRELOAD=/research/libfiowrapper/libfioinfo.so ./examples/info-demo ./examples/input/sample
+LD_PRELOAD=../../libfioinfo.so ./info-demo ./input/sample
 ===========================================
                 libfioinfo
 Version: 0.1
@@ -57,15 +59,20 @@ fseek:  0
 fclose: 1
 
 ```
+
 For the regular fuzzing with files run the file-fuzz-demo:
 ```
-afl-fuzz -i ./input -o ./output -- ./examples/file-fuzz-demo @@
+afl-fuzz -i ./input -o ./output -- ./file-fuzz-demo @@
 ```
 
-For the memory fuzzing first the LD_LIBRARY_PATH needs to be set for the directory where the libfiowrapper.so is located.
+For the persistent fuzzing run the per-fuzz-demo:
 ```
-export LD_LIBRARY_PATH=./
-afl-fuzz -i ./input -o ./output -- ./examples/mem-fuzz-demo @@
+afl-fuzz -i ./input -o ./output -- ./per-fuzz-demo @@
+```
+For the persistent fuzzing with shared memory first the LD_LIBRARY_PATH needs to be set for the directory where the libfiowrapper.so is located.
+```
+export LD_LIBRARY_PATH=../../
+afl-fuzz -i ./input -o ./output -- ./mem-fuzz-demo @@
 ```
 ## Modifing code
 The code needs to be modify by adding few calls from the library. Just after __AFL_FUZZ_INIT add two function declarations:
