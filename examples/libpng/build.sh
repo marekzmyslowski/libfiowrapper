@@ -5,6 +5,7 @@ git clone https://git.code.sf.net/p/libpng/code libpng-code
 
 # Build libpng
 cd libpng-code
+git apply ../libpng-nocrc.diff
 mkdir afl-build
 cd afl-build
 CC=afl-clang-fast cmake ..
