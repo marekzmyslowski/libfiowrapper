@@ -3,10 +3,12 @@ CC = clang
 CFLAGS = -ldl -fPIC -shared
 
 all: libfioinfo libfiowrapper
+all: CFLAGS += -O3
 .PHONY: all
 
 debug: CFLAGS += -DDEBUG
-debug: all
+debug: libfioinfo libfiowrapper
+.PHONY: debug
 
 libfioinfo: libfioinfo.c
 	$(CC) $(CFLAGS) $? -o $@.so 

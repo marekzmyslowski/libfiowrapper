@@ -33,6 +33,8 @@ static int fputc_count;
 static int fputs_count;
 static int fread_count;
 static int fseek_count;
+
+static int ftell_count;
 static int fgetc_count;
 static int fgets_count;
 static int fclose_count;
@@ -56,6 +58,15 @@ FILE *fopen(const char *path, const char *mode)
     printf("fopen - path:%s, mode:%s\n", path, mode);
 #endif
     return _libc_fopen(path, mode);
+}
+
+FILE *fopen64(const char *path, const char *mode)
+{
+    fopen_count++;
+#ifdef DEBUG
+    printf("fopen - path:%s, mode:%s\n", path, mode);
+#endif
+    return _libc_fopen64(path, mode);    
 }
 
 /****************************************************************************************************
@@ -85,7 +96,7 @@ int fputc(int character, FILE *stream)
     if (stream != stderr && stream != stdout)
         fputc_count++;
 #ifdef DEBUG
-    printf("fputs - stream:%p, character:%c \n", stream, character);
+    printf("fputc - stream:%p, character:%x \n", stream, character);
 #endif
     return _libc_fputc(character, stream);
 }
@@ -155,6 +166,41 @@ char *fgets(char *str, int num, FILE *stream)
     return _libc_fgets(str, num, stream);
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+ * ftell wrapper
+ */
+long ftell(FILE *stream)
+{
+    if (stream != stderr && stream != stdout)
+        ftell_count++;
+#ifdef DEBUG
+    printf("ftell - stream:%p\n", stream);
+#endif
+    return _libc_ftell(stream);
+}
+
+off_t ftello(FILE *stream)
+{
+    if (stream != stderr && stream != stdout)
+        ftell_count++;
+#ifdef DEBUG
+    printf("ftello - stream:%p\n", stream);
+#endif
+    return _libc_ftello(stream);
+}
+
+off64_t ftello64(FILE *stream)
+{
+    if (stream != stderr && stream != stdout)
+        ftell_count++;
+#ifdef DEBUG
+    printf("ftello64 - stream:%p\n", stream);
+#endif
+    return _libc_ftello64(stream);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
 /*
  * fclose wrapper
  */
@@ -177,6 +223,7 @@ int fclose(FILE *stream)
 /*
  *  fwrite_unlocked wrapper
  */
+#ifndef __OPTIMIZE__
 size_t fwrite_unlocked(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
     if (stream != stderr && stream != stdout)
@@ -186,7 +233,7 @@ size_t fwrite_unlocked(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 #endif
     return _libc_fwrite_unlocked(ptr, size, nmemb, stream);
 }
-
+#endif
 /*
  *  fputc_unlocked wrapper
  */
@@ -216,6 +263,7 @@ int fputs_unlocked(const char *str, FILE *stream)
 /*
  * fread_unlocked wrapper
  */
+#ifndef __OPTIMIZE__
 size_t fread_unlocked(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
     if (stream != stderr && stream != stdout)
@@ -225,7 +273,7 @@ size_t fread_unlocked(void *ptr, size_t size, size_t nmemb, FILE *stream)
 #endif
     return _libc_fread_unlocked(ptr, size, nmemb, stream);
 }
-
+#endif
 /*
  * fgetc_unlocked wrapper
  */
@@ -279,6 +327,7 @@ void show_results()
     printf("fgetc:  %d - unlocked: %d\n", fgetc_count, fgetc_unlocked_count);
     printf("fgets:  %d - unlocked: %d\n", fgets_count, fgets_unlocked_count);
     printf("fseek:  %d\n", fseek_count);
+    printf("ftell:  %d\n", ftell_count);
     printf("fclose: %d\n", fclose_count);
     printf("===========================================\n");
 }
@@ -289,13 +338,23 @@ void show_results()
 __attribute__((constructor)) static void init(void)
 {
     _libc_fopen = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen");
+    _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
+
     _libc_fwrite = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite");
     _libc_fputc = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc");
     _libc_fputs = (int (*)(const char *str, FILE *fp))dlsym(RTLD_NEXT, "fputs");
     _libc_fread = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread");
     _libc_fgetc = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc");
     _libc_fgets = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets");
+
     _libc_fseek = (int (*)(FILE * stream, long offset, int whence)) dlsym(RTLD_NEXT, "fseek");
+    _libc_fseeko = (int (*)(FILE * stream, off_t offset, int whence)) dlsym(RTLD_NEXT, "fseeko");
+    _libc_fseeko64 = (int (*)(FILE * stream, off64_t offset, int whence)) dlsym(RTLD_NEXT, "fseeko64");
+
+    _libc_ftell = (long (*)(FILE * fp)) dlsym(RTLD_NEXT, "ftell");
+    _libc_ftello = (off_t (*)(FILE * fp)) dlsym(RTLD_NEXT, "ftello");
+    _libc_ftello64 = (off64_t (*)(FILE * fp)) dlsym(RTLD_NEXT, "ftello64");
+
     _libc_fclose = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fclose");
 
     _libc_fwrite_unlocked = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite_unlocked");
@@ -312,6 +371,8 @@ __attribute__((constructor)) static void init(void)
     fread_count = 0;
     fgetc_count = 0;
     fgets_count = 0;
+    fseek_count = 0;
+    ftell_count = 0;
     fclose_count = 0;
 
     fwrite_unlocked_count = 0;

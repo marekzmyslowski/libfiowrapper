@@ -21,21 +21,25 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
 #include "libfiodef.h"
 
-
-struct _FILE_
+#define AFL_FILE_NAME ".cur_input"
+struct _AFL_MEMORY_FILE_
 {
     // This definition is very limited for now
-    FILE *_file;
+    FILE *stream;
     unsigned char *buffer;
     int read_pointer;
     ssize_t size;
-    int memory_init;
-} input_file;
+    int memory;
+} afl_input_file;
 
-// Deklaration for the structure that is used to be returned, when the file is opened.
-FILE _file;
+// This is used to speed up the process of allocating the FILE structure for the AFL input file/
+// This needs to be done as valid pointer to the FILE struct needs to be returned
+// QUESTION: does this structur needs to contain any real values or can be zeroed as it caputer all f* calls
+FILE _fake_file;
 
 /*
  * Function sets the pointer for the shared memory from the AFL.
@@ -45,11 +49,11 @@ void set_memory_ptr(unsigned char *buffer)
 #ifdef DEBUG
     printf("set_memory_ptr:%p\n", buffer);
 #endif
-    input_file.size = 0;
-    input_file.buffer = buffer;
-    input_file.memory_init = 1;
-    input_file.read_pointer = 0;
-    input_file._file = &_file;
+    afl_input_file.size = 0;
+    afl_input_file.buffer = buffer;
+    afl_input_file.memory = 1;
+    afl_input_file.read_pointer = 0;
+    afl_input_file.stream = &_fake_file;
 }
 
 /*
@@ -61,8 +65,8 @@ void set_memory_size(ssize_t size)
 #ifdef DEBUG
     printf("set_memory_size:%ld\n", size);
 #endif
-    input_file.size = size;
-    input_file.read_pointer = 0;
+    afl_input_file.size = size;
+    afl_input_file.read_pointer = 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -71,45 +75,61 @@ void set_memory_size(ssize_t size)
  * 
  * If the memory was not initialized, the function will open file, copy it to memory and return fake structure.
  * If the memory was initialized, it just return the fake structure.
+ * 
+ * TODO: Add fopen64 when requested. Investigate if requires.
  */
-FILE *fopen(const char *path, const char *mode)
+FILE *_fopen(const char *path, const char *mode)
 {
 #ifdef DEBUG
     printf("fopen - path:%s, mode:%s\n", path, mode);
 #endif
-    if (!input_file.memory_init)
+    if (strstr(path, AFL_FILE_NAME) != NULL)
     {
-        input_file._file = _libc_fopen(path, mode);
+        // AFL input file
+        if (!afl_input_file.memory)
+        {
+            afl_input_file.stream = _libc_fopen(path, mode);
 
-        /* Get the number of bytes */
-        _libc_fseek(input_file._file, 0L, SEEK_END);
-        input_file.size = ftell(input_file._file);
-        _libc_fseek(input_file._file, 0L, SEEK_SET);
+            /* Get the number of bytes */
+            _libc_fseek(afl_input_file.stream, 0L, SEEK_END);
+            afl_input_file.size = _libc_ftell(afl_input_file.stream);
+            _libc_fseek(afl_input_file.stream, 0L, SEEK_SET);
 
 #ifdef DEBUG
-        printf("fopen - size:%ld\n", input_file.size);
+            printf("fopen - size:%ld\n", afl_input_file.size);
 #endif
-        input_file.buffer = malloc(input_file.size + 1);
-        _libc_fread(input_file.buffer, 1, input_file.size, input_file._file);
-        input_file.read_pointer = 0;
+            afl_input_file.buffer = malloc(afl_input_file.size + 1);
+            _libc_fread(afl_input_file.buffer, 1, afl_input_file.size, afl_input_file.stream);
+            afl_input_file.read_pointer = 0;
+        }
+        return afl_input_file.stream;
     }
-    return input_file._file;
+    // The other file is requested to be opened
+    return _libc_fopen(path, mode);
 }
 
+FILE *fopen(const char *path, const char *mode)
+{
+    return _fopen(path, mode);
+}
+
+FILE *fopen64(const char *path, const char *mode)
+{
+    return _fopen(path, mode);
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
  * fwrite wrapper
  * 
- * If the stream is stdout, the size is returned.
+ * Currently the assumption is, that the data stored by the application are not used at all so 
+ * it just fakes the data were written.
  * 
  * Note: The other functionality is not implemented. I assume that the fuzzed application is not writing to the input
  */
 
 size_t _fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
-    if (stream == stdout)
-        return size * nmemb;
-    return 0;
+    return size * nmemb;
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
@@ -120,6 +140,10 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
     return _fwrite(ptr, size, nmemb, stream);
 }
 
+//
+// fwrite_unlocked in optimized version is a preprocessor declaration that uses fputc_unlocked
+//
+#ifndef __OPTIMIZE__
 size_t fwrite_unlocked(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 #ifdef DEBUG
@@ -127,27 +151,24 @@ size_t fwrite_unlocked(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 #endif
     return _fwrite(ptr, size, nmemb, stream);
 }
-
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
  *  fputc wrapper
  * 
- *  If the stream is stdout, the character is returned.
+ *  The function fakes that the write operation was performed.
  * 
- *  Note: The other functionality is not implemented. I assume that the fuzzed application is not writing to the input
+ *  Note: The other functionality is not implemented. I assume that the fuzzed application is not writing to the input.
  */
 int _fputc(int character, FILE *stream)
 {
-    if (stream == stdout)
-        return character;
-
-    return EOF;
+    return character;
 }
 
 int fputc(int character, FILE *stream)
 {
 #ifdef DEBUG
-    printf("fputs - stream:%p, character:%c \n", stream, character);
+    printf("fputc - stream:%p, character:0x%.2X\n", stream, character);
 #endif
     return _fputc(character, stream);
 }
@@ -155,26 +176,22 @@ int fputc(int character, FILE *stream)
 int fputc_unlocked(int character, FILE *stream)
 {
 #ifdef DEBUG
-    printf("fputs_unlocked - stream:%p, character:%c \n", stream, character);
+    printf("fputc_unlocked - stream:%p, character:0x%.2X\n", stream, character);
 #endif
     return _fputc(character, stream);
 }
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
  *  fputs wrapper
  * 
- *  If the stream is stdout, the "1" is returned. 
+ *  The function fakes that the write operation was performed.
  *  TODO: verify what exact value is returned on success.
  * 
- *  Note: The other functionality is not implemented. I assume that the fuzzed application is not writing to the input
+ *  Note: The other functionality is not implemented. I assume that the fuzzed application is not writing to the input.
  */
 int _fputs(const char *str, FILE *stream)
 {
-    if (stream == stdout)
-        return 1;
-    
-    return EOF;
+    return 1;
 }
 
 int fputs(const char *str, FILE *stream)
@@ -185,6 +202,10 @@ int fputs(const char *str, FILE *stream)
     return _fputs(str, stream);
 }
 
+//
+// fputs_unlocked in optimized version is a preprocessor declaration that uses fputc_unlocked
+//
+#ifndef __OPTIMIZE__
 int fputs_unlocked(const char *str, FILE *stream)
 {
 #ifdef DEBUG
@@ -192,25 +213,33 @@ int fputs_unlocked(const char *str, FILE *stream)
 #endif
     return _fputs(str, stream);
 }
-
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
  * fread wrapper
  */
 size_t _fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
-    size_t bytes_to_copy_left = size * nmemb;
-    size_t bytes_copied = 0;
-    while (bytes_to_copy_left)
+    printf("XXX\n");
+    if (stream == afl_input_file.stream)
     {
-        if (input_file.read_pointer == input_file.size)
-            break;
-        ((char *)ptr)[bytes_copied] = input_file.buffer[input_file.read_pointer];
-        input_file.read_pointer++;
-        bytes_to_copy_left--;
-        bytes_copied++;
+        size_t bytes_to_copy_left = size * nmemb;
+        size_t bytes_copied = 0;
+        while (bytes_to_copy_left)
+        {
+            if (afl_input_file.read_pointer == afl_input_file.size)
+                break;
+            ((char *)ptr)[bytes_copied] = afl_input_file.buffer[afl_input_file.read_pointer];
+            afl_input_file.read_pointer++;
+            bytes_to_copy_left--;
+            bytes_copied++;
+        }
+        return bytes_copied;
     }
-    return bytes_copied;
+    else
+    {
+        return _libc_fread(ptr, size, nmemb, stream);
+    }
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
@@ -221,6 +250,10 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
     return _fread(ptr, size, nmemb, stream);
 }
 
+//
+// fread_unlocked in optimized version is a preprocessor declaration that uses fgetc_unlocked
+//
+#ifndef __OPTIMIZE__
 size_t fread_unlocked(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 #ifdef DEBUG
@@ -228,7 +261,7 @@ size_t fread_unlocked(void *ptr, size_t size, size_t nmemb, FILE *stream)
 #endif
     return _fread(ptr, size, nmemb, stream);
 }
-
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
  *  fgetc wrapper
@@ -236,21 +269,28 @@ size_t fread_unlocked(void *ptr, size_t size, size_t nmemb, FILE *stream)
 int _fgetc(FILE *stream)
 {
     char c;
-    if (input_file.read_pointer == input_file.size)
+    if (stream == afl_input_file.stream)
     {
-        // This is the end of the file
-        return EOF;
+        if (afl_input_file.read_pointer == afl_input_file.size)
+        {
+            // This is the end of the file
+            return EOF;
+        }
+        c = afl_input_file.buffer[afl_input_file.read_pointer];
+        afl_input_file.read_pointer++;
+        return (unsigned char)c;
     }
-    c = input_file.buffer[input_file.read_pointer];
-    input_file.read_pointer++;
-    return (unsigned char)c;
+    else
+    {
+        return _libc_fgetc(stream);
+    }
 }
 
 int fgetc(FILE *stream)
 {
 #ifdef DEBUG
     char c = _fgetc(stream);
-    printf("fgetc - stream:%p, returned: %c\n", stream, c);
+    printf("fgetc - stream:%p, returned:0x%.2X\n", stream, c);
     return c;
 #else
     return _fgetc(stream);
@@ -261,7 +301,7 @@ int fgetc_unlocked(FILE *stream)
 {
 #ifdef DEBUG
     char c = _fgetc(stream);
-    printf("fgetc_unlocked - stream:%p, returned: %c\n", stream, c);
+    printf("fgetc_unlocked - stream:%p, returned:0x%.2X\n", stream, c);
     return c;
 #else
     return _fgetc(stream);
@@ -306,30 +346,43 @@ int fseek(FILE *stream, long offset, int whence)
 #ifdef DEBUG
     printf("fseek - stream:%p, offest:%ld, whence:%d\n", stream, offset, whence);
 #endif
-    switch (whence) {
-	case SEEK_CUR:
-    case SEEK_END:
-        if (input_file.read_pointer + offset >= input_file.size || input_file.read_pointer + offset < 0)
+    if (stream == afl_input_file.stream)
+    {
+        switch (whence)
         {
-            input_file.read_pointer = input_file.size;
-            return EOF;
-        }
-        else
-        {
-            input_file.read_pointer += offset;
+        case SEEK_CUR:
+        case SEEK_END:
+            if (afl_input_file.read_pointer + offset >= afl_input_file.size || afl_input_file.read_pointer + offset < 0)
+            {
+                afl_input_file.read_pointer = afl_input_file.size;
+                return EOF;
+            }
+            else
+            {
+                afl_input_file.read_pointer += offset;
+                return 0;
+            }
+            break;
+        case SEEK_SET:
+            if (offset >= afl_input_file.size)
+                return EOF;
+            else
+                afl_input_file.read_pointer += offset;
             return 0;
-        }
-		break;
-	case SEEK_SET:
-        if (offset >= input_file.size)
+            break;
+        default:
             return EOF;
-        else
-            input_file.read_pointer += offset;
-        break;
-	default:
-		return EOF;
-	}
-    return 0;
+        }
+    }
+    else
+    {
+        return _libc_fseek(stream, offset, whence);
+    }
+}
+
+off_t ftello64(FILE *stream)
+{
+    return (off_t)afl_input_file.read_pointer;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -341,7 +394,15 @@ int fclose(FILE *stream)
 #ifdef DEBUG
     printf("fclose - stream:%p\n", stream);
 #endif
-    return 0;
+    if (stream == afl_input_file.stream)
+    {
+        if (!afl_input_file.memory)
+            return _libc_fclose(stream);
+        else
+            return 0;
+    }
+    else
+        return _libc_fclose(stream);
 }
 
 /*
@@ -349,12 +410,16 @@ int fclose(FILE *stream)
  */
 __attribute__((constructor)) static void init(void)
 {
+    // TODO Remove unused functions
     _libc_fopen = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen");
+    _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
+
     _libc_fwrite = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite");
     _libc_fputc = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc");
     _libc_fputs = (int (*)(const char *str, FILE *fp))dlsym(RTLD_NEXT, "fputs");
     _libc_fread = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread");
     _libc_fseek = (int (*)(FILE * stream, long offset, int whence)) dlsym(RTLD_NEXT, "fseek");
+    _libc_ftello64 = (off_t(*)(FILE * stream)) dlsym(RTLD_NEXT, "ftello64");
     _libc_fgetc = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc");
     _libc_fgets = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets");
     _libc_fclose = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fclose");
@@ -366,7 +431,7 @@ __attribute__((constructor)) static void init(void)
     _libc_fgetc_unlocked = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc_unlocked");
     _libc_fgets_unlocked = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets_unlocked");
 
-    input_file.memory_init = 0;
+    afl_input_file.memory = 0;
 }
 
 /*
