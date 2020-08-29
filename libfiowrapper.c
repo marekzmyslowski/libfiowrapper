@@ -88,12 +88,15 @@ FILE *_fopen(const char *path, const char *mode)
         // AFL input file
         if (!afl_input_file.memory)
         {
+#ifdef DEBUG
+    printf("fopen - loading file into memory\n");
+#endif    
             afl_input_file.stream = _libc_fopen(path, mode);
-
             /* Get the number of bytes */
             _libc_fseek(afl_input_file.stream, 0L, SEEK_END);
             afl_input_file.size = _libc_ftell(afl_input_file.stream);
             _libc_fseek(afl_input_file.stream, 0L, SEEK_SET);
+
 
 #ifdef DEBUG
             printf("fopen - size:%ld\n", afl_input_file.size);
@@ -220,7 +223,6 @@ int fputs_unlocked(const char *str, FILE *stream)
  */
 size_t _fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
-    printf("XXX\n");
     if (stream == afl_input_file.stream)
     {
         size_t bytes_to_copy_left = size * nmemb;
@@ -419,6 +421,7 @@ __attribute__((constructor)) static void init(void)
     _libc_fputs = (int (*)(const char *str, FILE *fp))dlsym(RTLD_NEXT, "fputs");
     _libc_fread = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread");
     _libc_fseek = (int (*)(FILE * stream, long offset, int whence)) dlsym(RTLD_NEXT, "fseek");
+    _libc_ftell = (long (*)(FILE *stream)) dlsym(RTLD_NEXT, "fseek");
     _libc_ftello64 = (off_t(*)(FILE * stream)) dlsym(RTLD_NEXT, "ftello64");
     _libc_fgetc = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc");
     _libc_fgets = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets");
