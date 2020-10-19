@@ -332,5 +332,6 @@ int main(int argc, char *argv[])
             image_data = readpng_get_image((2.2*1.0), &pChannels, &pRowbytes);
             readpng_cleanup(1);
         }
+        fclose(infile);
     }
 }

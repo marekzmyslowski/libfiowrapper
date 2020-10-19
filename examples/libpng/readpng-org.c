@@ -316,12 +316,12 @@ int main(int argc, char *argv[])
     uch red, green, blue;
     int pChannels;
     ulg pRowbytes;
-    image_data = NULL;
-    infile = fopen(argv[1], "r");
-    if (!readpng_init(infile, &w, &h)) {
-        readpng_get_bgcolor(&red, &green, &blue);
-        image_data = readpng_get_image((2.2*1.0), &pChannels, &pRowbytes);
-        readpng_cleanup(1);
-    }
-    fclose(infile);
+        image_data = NULL;
+        infile = fopen(argv[1], "r");
+        if (!readpng_init(infile, &w, &h)) {
+            readpng_get_bgcolor(&red, &green, &blue);
+            image_data = readpng_get_image((2.2*1.0), &pChannels, &pRowbytes);
+            readpng_cleanup(1);
+        }
+        fclose(infile);
 }
