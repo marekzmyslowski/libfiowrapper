@@ -13,8 +13,5 @@ RUN cd aflpp-dev && git checkout dev && make && make install
 
 RUN git clone https://github.com/marekzmyslowski/libfiowrapper.git
 WORKDIR /work/libfiowrapper
-RUN make && make -C ./examples/demo
+RUN make all
 
-WORKDIR /work/libfiowrapper/examples/libpng
-RUN ./build.sh
-WORKDIR /work
