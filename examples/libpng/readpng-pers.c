@@ -55,6 +55,7 @@
   /*
    * Modified by: Marek Zmysłowski
    * Copyrights: 2020
+   * This file contains code to be fuzzed in persistent mode.
    */
 
 #include <stdio.h>
@@ -316,6 +317,8 @@ int main(int argc, char *argv[])
     uch red, green, blue;
     int pChannels;
     ulg pRowbytes;
+    while (__AFL_LOOP(65535))
+    {
         image_data = NULL;
         infile = fopen(argv[1], "r");
         if (!readpng_init(infile, &w, &h)) {
@@ -324,4 +327,5 @@ int main(int argc, char *argv[])
             readpng_cleanup(1);
         }
         fclose(infile);
+    }
 }

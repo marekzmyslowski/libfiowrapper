@@ -55,6 +55,7 @@
   /*
    * Modified by: Marek Zmysłowski
    * Copyrights: 2020
+   * This file contains code to be fuzzed in persistent mode with libfiowrapper.
    */
 
 #include <stdio.h>
@@ -64,6 +65,10 @@
 
 #include "png.h"        /* libpng header; includes zlib.h */
 #include "readpng.h"    /* typedefs, common macros, public prototypes */
+
+__AFL_FUZZ_INIT();
+extern void set_memory_size(ssize_t size);
+extern void set_memory_ptr(unsigned char *buffer);
 
 /* future versions of libpng will provide this macro: */
 #ifndef png_jmpbuf
@@ -316,6 +321,12 @@ int main(int argc, char *argv[])
     uch red, green, blue;
     int pChannels;
     ulg pRowbytes;
+    // Set the memory pointer
+    set_memory_ptr(__AFL_FUZZ_TESTCASE_BUF);
+    while (__AFL_LOOP(65535))
+    {
+        // Set the file size.
+        set_memory_size(__AFL_FUZZ_TESTCASE_LEN);
         image_data = NULL;
         infile = fopen(argv[1], "r");
         if (!readpng_init(infile, &w, &h)) {
@@ -324,4 +335,5 @@ int main(int argc, char *argv[])
             readpng_cleanup(1);
         }
         fclose(infile);
+    }
 }

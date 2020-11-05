@@ -1,48 +1,79 @@
 # Performance
-## Test Case:
-The performance test was build based on the libpng library. The difference between two testing example are only few lines added. There is no change in rest of the code. The original file operation are not changed.
+The performance test was done on the libpng library with readpng console application. Original source code is available [here](./examples/libpng/readpng.c).
 
+## Setup
+For this test, two cases ware prepared. Original file was changed to be fuzzed in the persistent mode and the persistent mode with libfiowrapper. Following diff shows differences between the files. As it can be seen, only few addition lines were added for the libfiowrapper.
 ```
-/libfiowrapper$ diff ./examples/libpng/readpng-org.c ./examples/libpng/readpng.c
-67a68,71
-> __AFL_FUZZ_INIT();
-> extern void set_memory_size(ssize_t size);
-> extern void set_memory_ptr(unsigned char *buffer);
-> 
-318a323,327
->     // Set the memory pointer
->     set_memory_ptr(__AFL_FUZZ_TESTCASE_BUF);
->     while (__AFL_LOOP(65535)) {
->         // Set the file size.
->         set_memory_size(__AFL_FUZZ_TESTCASE_LEN);
-326a336
->     }
+/research/libfiowrapper/examples/libpng$ diff -u readpng-pers.c readpng-fiow.c
+--- readpng-pers.c      2020-11-02 22:58:56.207491235 +0100
++++ readpng-fiow.c      2020-11-02 23:07:21.736258287 +0100
+@@ -55,7 +55,7 @@
+   /*
+    * Modified by: Marek Zmysłowski
+    * Copyrights: 2020
+-   * This file contains code to be fuzzed in persistent mode.
++   * This file contains code to be fuzzed in persistent mode with libfiowrapper.
+    */
+ 
+ #include <stdio.h>
+@@ -66,6 +66,10 @@
+ #include "png.h"        /* libpng header; includes zlib.h */
+ #include "readpng.h"    /* typedefs, common macros, public prototypes */
+ 
++__AFL_FUZZ_INIT();
++extern void set_memory_size(ssize_t size);
++extern void set_memory_ptr(unsigned char *buffer);
++
+ /* future versions of libpng will provide this macro: */
+ #ifndef png_jmpbuf
+ #  define png_jmpbuf(png_ptr)   ((png_ptr)->jmpbuf)
+@@ -317,8 +321,12 @@
+     uch red, green, blue;
+     int pChannels;
+     ulg pRowbytes;
++    // Set the memory pointer
++    set_memory_ptr(__AFL_FUZZ_TESTCASE_BUF);
+     while (__AFL_LOOP(65535))
+     {
++        // Set the file size.
++        set_memory_size(__AFL_FUZZ_TESTCASE_LEN);
+         image_data = NULL;
+         infile = fopen(argv[1], "r");
+         if (!readpng_init(infile, &w, &h)) {
+```
+The following commands were used to build the executables:
+```
+afl-clang-fast readpng-fiow.c -o readpng-fiow ./libpng-code/afl-build/libpng16.a -lz -lm -L../../ -lfiowrapper -I./libpng-code/afl-build -I./libpng-code
+```
+```
+afl-clang-fast readpng-pers.c -o readpng-pers ./libpng-code/afl-build/libpng16.a -lz -lm -I./libpng-code/afl-build -I./libpng-code
 ```
 
 ## Results:
+There were 4 tests performed, each took 4 hours with the AFL++. In every case the same seed was used.  The following command was used:
+```
+afl-fuzz  -i ./input-png/ -o ./output  -s 1234 -V 14400 -m none -- ./readpng-fiow @@
 
-The test was run for 12 hours with AFL++ with the same seed. The result shows that the libfiowrapper is around 4 time faster than normal file fuzzing.
+afl-fuzz  -i ./input-png/ -o ./output  -s 1234 -V 14400 -m none -- ./readpng-pers @@
+```
+Here are the results:
 
-Below image presents the result of the experiment run in 12 hours with default settings and file fuzzing.
-|![Fuzzing with files](afl-si-12h.png)| 
+|   | Persistent Mode  | libfiowrapper  |
+|---|---|---|
+| Total execs (Avg) | 51,2M | 130M |
+| Total paths | 1798 | 1966 |
+| Total crashes | 6 (1 unique) | 6 (1 unique) |
+
+
+Here are the statistics from the example single run:
+
+|![Fuzzing with persistent mode only](afl-pers-stats.png)| 
 |:--:| 
-| *Image 1. Fuzzing with file* |
+| *Image 1. Fuzzing with persistent mode only* |
 
-
-Below image presents the result of the experiment run in 12 hours with libfiowrapper.
-|![Fuzzing with libfiowrapper](afl-fiow-si-12h.png)| 
+|![Fuzzing with persistent mode + libfiowrapper](afl-fiow-stats.png)| 
 |:--:| 
-| *Image 2. Fuzzing with libfiowrapper* |
+| *Image 2. Fuzzing with persistent mode + libfiowrapper - stats* |
 
 
-|![Fuzzing with files](afl-stats.png)| 
-|:--:| 
-| *Image 3. Fuzzing with file - stats* |
-
-|![Fuzzing with libfiowrapper](afl-fiow-stats.png)| 
-|:--:| 
-| *Image 4. Fuzzing with libfiowrapper - stats* |
-
-
-
-Run on: Linux 4.19.76-linuxkit #1 SMP x86_64
+The tests were performed inside docker container running Linux 4.19.76-linuxkit #1 SMP x86_64

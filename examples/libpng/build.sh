@@ -13,8 +13,9 @@ make
 cd ../..
 
 # Build harness files.
-afl-clang-fast readpng.c -o readpng ./libpng-code/afl-build/libpng16.a -lz -lm -L../../ -lfiowrapper -I./libpng-code/afl-build -I./libpng-code
-afl-clang-fast readpng-org.c -o readpng-org ./libpng-code/afl-build/libpng16.a -lz -lm -I./libpng-code/afl-build -I./libpng-code
+afl-clang-fast readpng-fiow.c -o readpng-fiow ./libpng-code/afl-build/libpng16.a -lz -lm -L../../ -lfiowrapper -I./libpng-code/afl-build -I./libpng-code
+afl-clang-fast readpng-pers.c -o readpng-pers ./libpng-code/afl-build/libpng16.a -lz -lm -I./libpng-code/afl-build -I./libpng-code
+afl-clang-fast readpng.c -o readpng ./libpng-code/afl-build/libpng16.a -lz -lm -I./libpng-code/afl-build -I./libpng-code
 
 # Download corpus and reduce the file to size 10K
 svn export https://github.com/mozillasecurity/fuzzdata.git/trunk/samples/png input-png
