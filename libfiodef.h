@@ -37,5 +37,13 @@ static size_t (*_libc_fread_unlocked)(void *ptr, size_t size, size_t nmemb, FILE
 static int (*_libc_fgetc_unlocked)(FILE *stream);
 static char *(*_libc_fgets_unlocked)(char *str, int num, FILE *stream);
 
+// POSIX functions
+static int (* _posix_open)(const char *pathname, int flags, ...);
+static ssize_t (* _posix_read)(int fd, void *buf, size_t count);
+static ssize_t (* _posix_write)(int fd, const void *buf, size_t count);
+static off_t (* _posix_lseek)(int fd, off_t offset, int whence);
+
+static int (* _posix_close)(int fd);
+
 
 #endif

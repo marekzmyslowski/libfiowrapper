@@ -3,7 +3,7 @@
  * This library provides the statistics what functions where used during the execution. 
  * 
  * Author: Marek Zmysłowski
- * Version: 0.1
+ * Version: 0.3
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ struct _AFL_MEMORY_FILE_
     int read_pointer;
     ssize_t size;
     int memory;
+    int fd;
 } afl_input_file;
 
 // This is used to speed up the process of allocating the FILE structure for the AFL input file/
@@ -54,6 +55,7 @@ void set_memory_ptr(unsigned char *buffer)
     afl_input_file.memory = 1;
     afl_input_file.read_pointer = 0;
     afl_input_file.stream = &_fake_file;
+    afl_input_file.fd = 0xFF;
 }
 
 /*
@@ -407,6 +409,110 @@ int fclose(FILE *stream)
         return _libc_fclose(stream);
 }
 
+// TODO Fix argument passing
+int open(const char *pathname, int flags, ...)
+{
+#ifdef DEBUG
+    printf("open - path:%s\n", pathname);
+#endif
+    if (strstr(pathname, AFL_FILE_NAME) != NULL)
+    {
+        if (!afl_input_file.memory)
+        {
+            // TODO Fix later
+        }
+        return afl_input_file.fd;
+    }
+    return _posix_open(pathname, flags);
+}
+
+ssize_t read(int fd, void *buf, size_t count)
+{
+#ifdef DEBUG
+    printf("read - fd %d, buf:%p, count:%ld\n", fd, buf, count);
+#endif
+    if (fd == afl_input_file.fd)
+    {
+        size_t bytes_to_copy_left = count;
+        size_t bytes_copied = 0;
+        while (bytes_to_copy_left)
+        {
+            if (afl_input_file.read_pointer == afl_input_file.size)
+                break;
+            ((char *)buf)[bytes_copied] = afl_input_file.buffer[afl_input_file.read_pointer];
+            afl_input_file.read_pointer++;
+            bytes_to_copy_left--;
+            bytes_copied++;
+        }
+        return bytes_copied;
+    }
+    else
+    {
+        return _posix_read(fd, buf, count);
+    }
+}
+
+ssize_t write(int fd, const void *buf, size_t count)
+{
+#ifdef DEBUG
+    printf("write - fd %d, buf:%p, count:%ld\n", fd, buf, count);
+#endif
+    return _posix_write(fd, buf, count);
+}
+
+off_t lseek(int fd, off_t offset, int whence)
+{
+#ifdef DEBUG
+    printf("lseek - fd %d, offset:%ld, whence:%d\n", fd, offset, whence);
+#endif
+    if (fd == afl_input_file.fd)
+    {
+        switch (whence)
+        {
+        case SEEK_CUR:
+        case SEEK_END:
+            if (afl_input_file.read_pointer + offset >= afl_input_file.size || afl_input_file.read_pointer + offset < 0)
+            {
+                afl_input_file.read_pointer = afl_input_file.size;
+                return EOF;
+            }
+            else
+            {
+                afl_input_file.read_pointer += offset;
+                return 0;
+            }
+            break;
+        case SEEK_SET:
+            if (offset >= afl_input_file.size)
+                return EOF;
+            else
+                afl_input_file.read_pointer += offset;
+            return 0;
+            break;
+        default:
+            return EOF;
+        }
+    }
+    else
+    {
+        return _posix_lseek(fd, offset, whence);
+    } 
+}
+
+int close(int fd)
+{
+#ifdef DEBUG
+    printf("close - fd %d\n", fd);
+#endif
+    if (fd == afl_input_file.fd)
+    {
+        // TODO Fix this
+        return 0;
+    }
+    else
+        return _posix_close(fd);
+}
+
 /*
  * Library constructor
  */
@@ -433,6 +539,12 @@ __attribute__((constructor)) static void init(void)
     _libc_fread_unlocked = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread_unlocked");
     _libc_fgetc_unlocked = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc_unlocked");
     _libc_fgets_unlocked = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets_unlocked");
+
+    _posix_open = (int (*)(const char *pathname, int flags, ...))dlsym(RTLD_NEXT, "open");
+    _posix_read = (ssize_t (*)(int fd, void *buf, size_t count))dlsym(RTLD_NEXT, "read");
+    _posix_write = (ssize_t (*)(int fd, const void *buf, size_t count))dlsym(RTLD_NEXT, "write");
+    _posix_lseek = (off_t (*)(int fd, off_t offset, int whence))dlsym(RTLD_NEXT, "lseek");
+    _posix_close = (int (*)(int fd))dlsym(RTLD_NEXT, "close");
 
     afl_input_file.memory = 0;
 }

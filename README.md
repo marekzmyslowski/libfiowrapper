@@ -28,9 +28,9 @@ make
 ## Running Demo Apps
 The examples\demo directory, after build, will containe 3 application:
 - info-demo - this application is just compailed with the clang. 
-- file-fuzz-demo - this application is compiled with afl-clang-fast. It can be used to run fuzzing with simple input file.
-- per-fuzz-demo - this application is compiled with simple persistent mode.
-- mem-fuzz-demo - this applicaiton is compiled with persistend mode with shared memory with the libfiowrapper library to hook all the f* stdio functions.
+- file-fuzz-demo, file-fuzz-demo-posix - these applications are compiled with afl-clang-fast. They can be used to run fuzzing with simple input file.
+- per-fuzz-demo, per-fuzz-demo-posix - these applications are compiled with the persistent mode.
+- mem-fuzz-demo, mem-fuzz-demo-posix - these applicaitons are compiled with persistend mode with shared memory the libfiowrapper - it hooks all the f* stdio and posix file functions.
 
 Bellow commands needs to be run from the examples/demo directory.
 
@@ -39,7 +39,7 @@ To collect information:
 LD_PRELOAD=../../libfioinfo.so ./info-demo ./input/sample
 ===========================================
                 libfioinfo
-Version: 0.1
+Version: 0.3
 Author: Marek Zmysłowski
 ===========================================
 
@@ -56,7 +56,15 @@ fread:  0 - unlocked: 0
 fgetc:  4 - unlocked: 0
 fgets:  0 - unlocked: 0
 fseek:  0
+ftell:  0
 fclose: 1
+
+open:   0
+read:   0
+write:  0
+lseek:  0
+close:  0
+===========================================
 
 ```
 

@@ -3,7 +3,7 @@
  * This library provides the statistics what functions where used during the execution. 
  * 
  * Author: Marek Zmysłowski
- * Version: 0.1
+ * Version: 0.3
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,13 @@ static int fread_unlocked_count;
 static int fseek_unlocked_count;
 static int fgetc_unlocked_count;
 static int fgets_unlocked_count;
+
+// POSIX
+static int open_count;
+static int read_count;
+static int write_count;
+static int lseek_count;
+static int close_count;
 
 /*
  * fopen wrapper
@@ -300,6 +307,51 @@ char *fgets_unlocked(char *str, int num, FILE *stream)
     return _libc_fgets_unlocked(str, num, stream);
 }
 
+int open(const char *pathname, int flags, ...)
+{
+    open_count++;
+#ifdef DEBUG
+    printf("open - path:%s\n", pathname);
+#endif
+    return _posix_open(pathname, flags);
+}
+
+ssize_t read(int fd, void *buf, size_t count)
+{
+    read_count++;
+#ifdef DEBUG
+    printf("read - fd %d, buf:%p, count:%ld\n", fd, buf, count);
+#endif
+    return _posix_read(fd, buf, count);
+}
+
+ssize_t write(int fd, const void *buf, size_t count)
+{
+    write_count++;
+#ifdef DEBUG
+    printf("write - fd %d, buf:%p, count:%ld\n", fd, buf, count);
+#endif
+    return _posix_write(fd, buf, count);
+}
+
+off_t lseek(int fd, off_t offset, int whence)
+{
+    lseek_count++;
+#ifdef DEBUG
+    printf("lseek - fd %d, offset:%ld, whence:%d\n", fd, offset, whence);
+#endif
+    return _posix_lseek(fd, offset, whence);
+}
+
+int close(int fd)
+{
+    close_count++;
+#ifdef DEBUG
+    printf("close - fd %d\n", fd);
+#endif
+    return _posix_close(fd);
+}
+
 /*
  * Fuction prints the banner and the library info
  */
@@ -307,7 +359,7 @@ void show_banner()
 {
     printf("===========================================\n");
     printf("\t\tlibfioinfo\n");
-    printf("Version: 0.1\n");
+    printf("Version: 0.3\n");
     printf("Author: Marek Zmysłowski\n");
     printf("===========================================\n\n");
 }
@@ -329,6 +381,12 @@ void show_results()
     printf("fseek:  %d\n", fseek_count);
     printf("ftell:  %d\n", ftell_count);
     printf("fclose: %d\n", fclose_count);
+    printf ("\n");
+    printf("open:   %d\n", open_count);
+    printf("read:   %d\n", read_count);
+    printf("write:  %d\n", write_count);
+    printf("lseek:  %d\n", lseek_count);
+    printf("close:  %d\n", close_count);
     printf("===========================================\n");
 }
 
@@ -340,10 +398,10 @@ __attribute__((constructor)) static void init(void)
     _libc_fopen = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen");
     _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
 
-    _libc_fwrite = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite");
+    _libc_fwrite = (size_t (*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite");
     _libc_fputc = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc");
     _libc_fputs = (int (*)(const char *str, FILE *fp))dlsym(RTLD_NEXT, "fputs");
-    _libc_fread = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread");
+    _libc_fread = (size_t (*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread");
     _libc_fgetc = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc");
     _libc_fgets = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets");
 
@@ -357,12 +415,18 @@ __attribute__((constructor)) static void init(void)
 
     _libc_fclose = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fclose");
 
-    _libc_fwrite_unlocked = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite_unlocked");
+    _libc_fwrite_unlocked = (size_t (*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite_unlocked");
     _libc_fputc_unlocked = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc_unlocked");
     _libc_fputs_unlocked = (int (*)(const char *str, FILE *fp))dlsym(RTLD_NEXT, "fputs_unlocked");
     _libc_fread_unlocked = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread_unlocked");
     _libc_fgetc_unlocked = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc_unlocked");
     _libc_fgets_unlocked = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets_unlocked");
+
+    _posix_open = (int (*)(const char *pathname, int flags, ...))dlsym(RTLD_NEXT, "open");
+    _posix_read = (ssize_t (*)(int fd, void *buf, size_t count))dlsym(RTLD_NEXT, "read");
+    _posix_write = (ssize_t (*)(int fd, const void *buf, size_t count))dlsym(RTLD_NEXT, "write");
+    _posix_lseek = (off_t (*)(int fd, off_t offset, int whence))dlsym(RTLD_NEXT, "lseek");
+    _posix_close = (int (*)(int fd))dlsym(RTLD_NEXT, "close");
 
     fopen_count = 0;
     fwrite_count = 0;
@@ -381,6 +445,12 @@ __attribute__((constructor)) static void init(void)
     fread_unlocked_count = 0;
     fgetc_unlocked_count = 0;
     fgets_unlocked_count = 0;
+
+    open_count = 0;
+    read_count = 0;
+    write_count = 0;
+    lseek_count = 0;
+    close_count = 0;
 
     show_banner();
 }
