@@ -52,28 +52,28 @@ afl-clang-fast readpng-pers.c -o readpng-pers ./libpng-code/afl-build/libpng16.a
 ## Results:
 There were 4 tests performed, each took 4 hours with the AFL++. In every case the same seed was used.  The following command was used:
 ```
-afl-fuzz  -i ./input-png/ -o ./output  -s 1234 -V 14400 -m none -- ./readpng-fiow @@
+afl-fuzz  -i ./input-png/ -o ./output  -s 1234 -V 14400 -p seek -M fiow -m none -- ./readpng-fiow @@
 
-afl-fuzz  -i ./input-png/ -o ./output  -s 1234 -V 14400 -m none -- ./readpng-pers @@
+afl-fuzz  -i ./input-png/ -o ./output  -s 1234 -V 14400 -p seek -M pers -m none -- ./readpng-pers @@
 ```
 Here are the results:
 
 |   | Persistent Mode  | libfiowrapper  |
 |---|---|---|
-| Total execs (Avg) | 51,2M | 130M |
-| Total paths | 1798 | 1966 |
-| Total crashes | 6 (1 unique) | 6 (1 unique) |
+| Total execs (Avg) | 76,5M | 140M |
+| Total paths | 1860 | 1940 |
+| Total crashes | 1 (1 unique) | 1 (1 unique) |
 
 
 Here are the statistics from the example single run:
 
-|![Fuzzing with persistent mode only](afl-pers-stats.png)| 
+|![Fuzzing with persistent mode only](afl-fiow-stats.png)| 
 |:--:| 
-| *Image 1. Fuzzing with persistent mode only* |
+| *Image 1. Fuzzing with persistent mode + libfiowrapper* |
 
-|![Fuzzing with persistent mode + libfiowrapper](afl-fiow-stats.png)| 
+|![Fuzzing with persistent mode + libfiowrapper](afl-pers-stats.png)| 
 |:--:| 
-| *Image 2. Fuzzing with persistent mode + libfiowrapper - stats* |
+| *Image 2. Fuzzing with persistent mode only - stats* |
 
 
 The tests were performed inside docker container running Linux 4.19.76-linuxkit #1 SMP x86_64
