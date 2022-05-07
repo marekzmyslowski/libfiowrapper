@@ -91,7 +91,7 @@ FILE *_fopen(const char *path, const char *mode)
         if (!afl_input_file.memory)
         {
 #ifdef DEBUG
-    printf("fopen - loading file into memory\n");
+            printf("fopen - loading file into memory\n");
 #endif    
             afl_input_file.stream = _libc_fopen(path, mode);
             /* Get the number of bytes */
@@ -350,7 +350,7 @@ char *fgets_unlocked(char *str, int num, FILE *stream)
 int fseek(FILE *stream, long offset, int whence)
 {
 #ifdef DEBUG
-    printf("fseek - stream:%p, offest:%ld, whence:%d\n", stream, offset, whence);
+    printf("fseek - stream:%p, offset:%ld, whence:%d\n", stream, offset, whence);
 #endif
     if (stream == afl_input_file.stream)
     {
