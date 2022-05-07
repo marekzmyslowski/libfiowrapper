@@ -400,7 +400,17 @@ long ftell(FILE *stream)
 }
 off_t ftello64(FILE *stream)
 {
-    return (off_t)afl_input_file.read_pointer;
+#ifdef DEBUG
+    printf("ftello64 - stream:%p\n", stream);
+#endif
+    if (stream == afl_input_file.stream)
+    {
+        return (off_t)afl_input_file.read_pointer;
+    }
+    else
+    {
+        return _libc_ftello64(stream);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
