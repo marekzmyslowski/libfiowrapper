@@ -371,7 +371,7 @@ int fseek(FILE *stream, long offset, int whence)
             if (offset >= afl_input_file.size)
                 return EOF;
             else
-                afl_input_file.read_pointer += offset;
+                afl_input_file.read_pointer = offset;
             return 0;
             break;
         default:
@@ -500,7 +500,7 @@ off_t lseek(int fd, off_t offset, int whence)
             if (offset >= afl_input_file.size)
                 return EOF;
             else
-                afl_input_file.read_pointer += offset;
+                afl_input_file.read_pointer = offset;
             return 0;
             break;
         default:
