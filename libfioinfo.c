@@ -44,7 +44,6 @@ static int fwrite_unlocked_count;
 static int fputc_unlocked_count;
 static int fputs_unlocked_count;
 static int fread_unlocked_count;
-static int fseek_unlocked_count;
 static int fgetc_unlocked_count;
 static int fgets_unlocked_count;
 
