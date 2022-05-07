@@ -384,6 +384,20 @@ int fseek(FILE *stream, long offset, int whence)
     }
 }
 
+long ftell(FILE *stream)
+{
+#ifdef DEBUG
+    printf("ftell - stream:%p\n", stream);
+#endif
+    if (stream == afl_input_file.stream)
+    {
+        return afl_input_file.read_pointer;
+    }
+    else
+    {
+        return _libc_ftell(stream);
+    }
+}
 off_t ftello64(FILE *stream)
 {
     return (off_t)afl_input_file.read_pointer;
@@ -527,8 +541,7 @@ __attribute__((constructor)) static void init(void)
     _libc_fputs = (int (*)(const char *str, FILE *fp))dlsym(RTLD_NEXT, "fputs");
     _libc_fread = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread");
     _libc_fseek = (int (*)(FILE * stream, long offset, int whence)) dlsym(RTLD_NEXT, "fseek");
-    _libc_ftell = (long (*)(FILE *stream)) dlsym(RTLD_NEXT, "fseek");
-    _libc_ftello64 = (off_t(*)(FILE * stream)) dlsym(RTLD_NEXT, "ftello64");
+    _libc_ftell = (long (*)(FILE * stream)) dlsym(RTLD_NEXT, "ftell");
     _libc_fgetc = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc");
     _libc_fgets = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets");
     _libc_fclose = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fclose");
