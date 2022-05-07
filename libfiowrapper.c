@@ -118,10 +118,12 @@ FILE *fopen(const char *path, const char *mode)
     return _fopen(path, mode);
 }
 
+#if defined(_LARGEFILE64_SOURCE) && !defined(__APPLE__)
 FILE *fopen64(const char *path, const char *mode)
 {
     return _fopen(path, mode);
 }
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
  * fwrite wrapper
@@ -398,6 +400,7 @@ long ftell(FILE *stream)
         return _libc_ftell(stream);
     }
 }
+#if defined(_LARGEFILE64_SOURCE) && !defined(__APPLE__)
 off_t ftello64(FILE *stream)
 {
 #ifdef DEBUG
@@ -412,6 +415,7 @@ off_t ftello64(FILE *stream)
         return _libc_ftello64(stream);
     }
 }
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
@@ -544,7 +548,6 @@ __attribute__((constructor)) static void init(void)
 {
     // TODO Remove unused functions
     _libc_fopen = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen");
-    _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
 
     _libc_fwrite = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite");
     _libc_fputc = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc");
@@ -555,6 +558,11 @@ __attribute__((constructor)) static void init(void)
     _libc_fgetc = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc");
     _libc_fgets = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets");
     _libc_fclose = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fclose");
+
+#if defined(_LARGEFILE64_SOURCE) && !defined(__APPLE__)
+    _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
+    _libc_ftello64 = (off_t (*)(FILE * stream)) dlsym(RTLD_NEXT, "ftello64");
+#endif
 
     _libc_fwrite_unlocked = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite_unlocked");
     _libc_fputc_unlocked = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc_unlocked");
