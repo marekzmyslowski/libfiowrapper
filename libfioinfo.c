@@ -44,7 +44,6 @@ static int fwrite_unlocked_count;
 static int fputc_unlocked_count;
 static int fputs_unlocked_count;
 static int fread_unlocked_count;
-static int fseek_unlocked_count;
 static int fgetc_unlocked_count;
 static int fgets_unlocked_count;
 
@@ -67,6 +66,7 @@ FILE *fopen(const char *path, const char *mode)
     return _libc_fopen(path, mode);
 }
 
+#if defined(_LARGEFILE64_SOURCE) && !defined(__APPLE__)
 FILE *fopen64(const char *path, const char *mode)
 {
     fopen_count++;
@@ -75,6 +75,7 @@ FILE *fopen64(const char *path, const char *mode)
 #endif
     return _libc_fopen64(path, mode);    
 }
+#endif
 
 /****************************************************************************************************
  * 
@@ -197,6 +198,7 @@ off_t ftello(FILE *stream)
     return _libc_ftello(stream);
 }
 
+#if defined(_LARGEFILE64_SOURCE) && !defined(__APPLE__)
 off64_t ftello64(FILE *stream)
 {
     if (stream != stderr && stream != stdout)
@@ -206,6 +208,7 @@ off64_t ftello64(FILE *stream)
 #endif
     return _libc_ftello64(stream);
 }
+#endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /*
@@ -396,7 +399,6 @@ void show_results()
 __attribute__((constructor)) static void init(void)
 {
     _libc_fopen = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen");
-    _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
 
     _libc_fwrite = (size_t (*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite");
     _libc_fputc = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc");
@@ -407,11 +409,15 @@ __attribute__((constructor)) static void init(void)
 
     _libc_fseek = (int (*)(FILE * stream, long offset, int whence)) dlsym(RTLD_NEXT, "fseek");
     _libc_fseeko = (int (*)(FILE * stream, off_t offset, int whence)) dlsym(RTLD_NEXT, "fseeko");
-    _libc_fseeko64 = (int (*)(FILE * stream, off64_t offset, int whence)) dlsym(RTLD_NEXT, "fseeko64");
 
     _libc_ftell = (long (*)(FILE * fp)) dlsym(RTLD_NEXT, "ftell");
     _libc_ftello = (off_t (*)(FILE * fp)) dlsym(RTLD_NEXT, "ftello");
-    _libc_ftello64 = (off64_t (*)(FILE * fp)) dlsym(RTLD_NEXT, "ftello64");
+
+#if defined(_LARGEFILE64_SOURCE) && !defined(__APPLE__)
+    _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
+    _libc_ftello64 = (off64_t(*)(FILE * fp)) dlsym(RTLD_NEXT, "ftello64");
+    _libc_fseeko64 = (int (*)(FILE * stream, off64_t offset, int whence)) dlsym(RTLD_NEXT, "fseeko64");
+#endif
 
     _libc_fclose = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fclose");
 

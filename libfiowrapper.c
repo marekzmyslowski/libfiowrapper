@@ -91,7 +91,7 @@ FILE *_fopen(const char *path, const char *mode)
         if (!afl_input_file.memory)
         {
 #ifdef DEBUG
-    printf("fopen - loading file into memory\n");
+            printf("fopen - loading file into memory\n");
 #endif    
             afl_input_file.stream = _libc_fopen(path, mode);
             /* Get the number of bytes */
@@ -118,10 +118,12 @@ FILE *fopen(const char *path, const char *mode)
     return _fopen(path, mode);
 }
 
+#if defined(_LARGEFILE64_SOURCE) && !defined(__APPLE__)
 FILE *fopen64(const char *path, const char *mode)
 {
     return _fopen(path, mode);
 }
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
  * fwrite wrapper
@@ -348,7 +350,7 @@ char *fgets_unlocked(char *str, int num, FILE *stream)
 int fseek(FILE *stream, long offset, int whence)
 {
 #ifdef DEBUG
-    printf("fseek - stream:%p, offest:%ld, whence:%d\n", stream, offset, whence);
+    printf("fseek - stream:%p, offset:%ld, whence:%d\n", stream, offset, whence);
 #endif
     if (stream == afl_input_file.stream)
     {
@@ -371,7 +373,7 @@ int fseek(FILE *stream, long offset, int whence)
             if (offset >= afl_input_file.size)
                 return EOF;
             else
-                afl_input_file.read_pointer += offset;
+                afl_input_file.read_pointer = offset;
             return 0;
             break;
         default:
@@ -384,10 +386,36 @@ int fseek(FILE *stream, long offset, int whence)
     }
 }
 
+long ftell(FILE *stream)
+{
+#ifdef DEBUG
+    printf("ftell - stream:%p\n", stream);
+#endif
+    if (stream == afl_input_file.stream)
+    {
+        return afl_input_file.read_pointer;
+    }
+    else
+    {
+        return _libc_ftell(stream);
+    }
+}
+#if defined(_LARGEFILE64_SOURCE) && !defined(__APPLE__)
 off_t ftello64(FILE *stream)
 {
-    return (off_t)afl_input_file.read_pointer;
+#ifdef DEBUG
+    printf("ftello64 - stream:%p\n", stream);
+#endif
+    if (stream == afl_input_file.stream)
+    {
+        return (off_t)afl_input_file.read_pointer;
+    }
+    else
+    {
+        return _libc_ftello64(stream);
+    }
 }
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
@@ -486,7 +514,7 @@ off_t lseek(int fd, off_t offset, int whence)
             if (offset >= afl_input_file.size)
                 return EOF;
             else
-                afl_input_file.read_pointer += offset;
+                afl_input_file.read_pointer = offset;
             return 0;
             break;
         default:
@@ -520,18 +548,21 @@ __attribute__((constructor)) static void init(void)
 {
     // TODO Remove unused functions
     _libc_fopen = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen");
-    _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
 
     _libc_fwrite = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite");
     _libc_fputc = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc");
     _libc_fputs = (int (*)(const char *str, FILE *fp))dlsym(RTLD_NEXT, "fputs");
     _libc_fread = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread");
     _libc_fseek = (int (*)(FILE * stream, long offset, int whence)) dlsym(RTLD_NEXT, "fseek");
-    _libc_ftell = (long (*)(FILE *stream)) dlsym(RTLD_NEXT, "fseek");
-    _libc_ftello64 = (off_t(*)(FILE * stream)) dlsym(RTLD_NEXT, "ftello64");
+    _libc_ftell = (long (*)(FILE * stream)) dlsym(RTLD_NEXT, "ftell");
     _libc_fgetc = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc");
     _libc_fgets = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets");
     _libc_fclose = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fclose");
+
+#if defined(_LARGEFILE64_SOURCE) && !defined(__APPLE__)
+    _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
+    _libc_ftello64 = (off_t (*)(FILE * stream)) dlsym(RTLD_NEXT, "ftello64");
+#endif
 
     _libc_fwrite_unlocked = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite_unlocked");
     _libc_fputc_unlocked = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc_unlocked");
