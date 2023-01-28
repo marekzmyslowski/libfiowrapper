@@ -86,8 +86,13 @@ afl-fuzz -i ./input -o ./output -- ./mem-fuzz-demo @@
 The code needs to be modify by adding few calls from the library. Just after __AFL_FUZZ_INIT add two function declarations:
 ```
 __AFL_FUZZ_INIT();
+#ifdef __cplusplus
+extern "C" void set_memory_size(ssize_t size);
+extern "C" void set_memory_ptr(unsigned char *buffer);
+#else
 extern void set_memory_size(ssize_t size);
 extern void set_memory_ptr(unsigned char *buffer);
+#endif
 ```
 
 Before the AFL loop initialize the memory pointer:
