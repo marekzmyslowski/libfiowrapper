@@ -55,7 +55,6 @@ void set_memory_ptr(unsigned char *buffer)
     afl_input_file.memory = 1;
     afl_input_file.read_pointer = 0;
     afl_input_file.stream = &_fake_file;
-    afl_input_file.fd = 0xFF;
 }
 
 /*
@@ -347,15 +346,9 @@ char *fgets_unlocked(char *str, int num, FILE *stream)
  * 
  * TODO: Make sure that the offsets are correct.
  */
-int fseek(FILE *stream, long offset, int whence)
-{
-#ifdef DEBUG
-    printf("fseek - stream:%p, offset:%ld, whence:%d\n", stream, offset, whence);
-#endif
-    if (stream == afl_input_file.stream)
+int _fseek(FILE *fp, off64_t offset, int whence) {
+    switch (whence)
     {
-        switch (whence)
-        {
         case SEEK_CUR:
         case SEEK_END:
             if (afl_input_file.read_pointer + offset >= afl_input_file.size || afl_input_file.read_pointer + offset < 0)
@@ -378,12 +371,37 @@ int fseek(FILE *stream, long offset, int whence)
             break;
         default:
             return EOF;
-        }
     }
-    else
-    {
-        return _libc_fseek(stream, offset, whence);
-    }
+}
+
+int fseek(FILE *stream, long offset, int whence)
+{
+#ifdef DEBUG
+    printf("fseek - stream:%p, offset:%ld, whence:%d\n", stream, offset, whence);
+#endif
+    if (stream == afl_input_file.stream)
+        return _fseek(stream, offset, whence);
+    return _libc_fseek(stream, offset, whence);
+}
+
+int fseeko(FILE *stream, off_t offset, int whence)
+{
+#ifdef DEBUG
+    printf("fseeko - stream:%p, offset:%ld, whence:%d\n", stream, offset, whence);
+#endif
+    if (stream == afl_input_file.stream)
+        return _fseek(stream, offset, whence);
+    return _libc_fseeko(stream, offset, whence);
+}
+
+int fseeko64(FILE *stream, off64_t offset, int whence)
+{
+#ifdef DEBUG
+    printf("fseeko64 - stream:%p, offset:%ld, whence:%d\n", stream, offset, whence);
+#endif
+    if (stream == afl_input_file.stream)
+        return _fseek(stream, offset, whence);
+    return _libc_fseeko64(stream, offset, whence);
 }
 
 long ftell(FILE *stream)
@@ -540,6 +558,32 @@ int close(int fd)
     else
         return _posix_close(fd);
 }
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+ * fileno wrapper
+ */
+int fileno(FILE *stream)
+{
+#ifdef DEBUG
+    printf("fileno - stream:%p\n", stream);
+#endif
+    if (stream == afl_input_file.stream)
+        return afl_input_file.fd;
+    return _libc_fileno(stream);
+}
+
+#ifndef __OPTIMIZE__
+int fileno_unlocked(FILE *stream)
+{
+#ifdef DEBUG
+    printf("fileno_unlocked - stream:%p\n", stream);
+#endif
+    if (stream == afl_input_file.stream)
+        return afl_input_file.fd;
+    return _libc_fileno_unlocked(stream);
+}
+#endif
+
 
 /*
  * Library constructor
@@ -554,6 +598,8 @@ __attribute__((constructor)) static void init(void)
     _libc_fputs = (int (*)(const char *str, FILE *fp))dlsym(RTLD_NEXT, "fputs");
     _libc_fread = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread");
     _libc_fseek = (int (*)(FILE * stream, long offset, int whence)) dlsym(RTLD_NEXT, "fseek");
+    _libc_fseeko = (int (*)(FILE * stream, off_t offset, int whence)) dlsym(RTLD_NEXT, "fseeko");
+    _libc_fseeko64 = (int (*)(FILE * stream, off64_t offset, int whence)) dlsym(RTLD_NEXT, "fseeko64");
     _libc_ftell = (long (*)(FILE * stream)) dlsym(RTLD_NEXT, "ftell");
     _libc_fgetc = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc");
     _libc_fgets = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets");
@@ -563,6 +609,7 @@ __attribute__((constructor)) static void init(void)
     _libc_fopen64 = (FILE * (*)(const char *path, const char *mode)) dlsym(RTLD_NEXT, "fopen64");
     _libc_ftello64 = (off_t (*)(FILE * stream)) dlsym(RTLD_NEXT, "ftello64");
 #endif
+    _libc_fileno = (int (*)(FILE *stream))dlsym(RTLD_NEXT, "fileno");
 
     _libc_fwrite_unlocked = (size_t(*)(const void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fwrite_unlocked");
     _libc_fputc_unlocked = (int (*)(int character, FILE *fp))dlsym(RTLD_NEXT, "fputc_unlocked");
@@ -570,6 +617,7 @@ __attribute__((constructor)) static void init(void)
     _libc_fread_unlocked = (size_t(*)(void *ptr, size_t size, size_t nmemb, FILE *stream))dlsym(RTLD_NEXT, "fread_unlocked");
     _libc_fgetc_unlocked = (int (*)(FILE * fp)) dlsym(RTLD_NEXT, "fgetc_unlocked");
     _libc_fgets_unlocked = (char *(*)(char *str, int num, FILE *fp))dlsym(RTLD_NEXT, "fgets_unlocked");
+    _libc_fileno_unlocked = (int (*)(FILE *stream))dlsym(RTLD_NEXT, "fileno_unlocked");
 
     _posix_open = (int (*)(const char *pathname, int flags, ...))dlsym(RTLD_NEXT, "open");
     _posix_read = (ssize_t (*)(int fd, void *buf, size_t count))dlsym(RTLD_NEXT, "read");
@@ -577,7 +625,10 @@ __attribute__((constructor)) static void init(void)
     _posix_lseek = (off_t (*)(int fd, off_t offset, int whence))dlsym(RTLD_NEXT, "lseek");
     _posix_close = (int (*)(int fd))dlsym(RTLD_NEXT, "close");
 
+    // get ourselves an fd
+    int fd = _posix_open("/dev/null", 2 /* O_RDWR */);
     afl_input_file.memory = 0;
+    afl_input_file.fd = fd;
 }
 
 /*

@@ -20,6 +20,7 @@ static char *(*_libc_fgets)(char *str, int num, FILE *stream);
 
 static int (*_libc_fseek)(FILE *stream, long offset, int whence);
 static int (*_libc_fseeko)(FILE *stream, off_t offset, int whence);
+static int (*_libc_fseeko64)(FILE *stream, off64_t offset, int whence);
 
 static long (*_libc_ftell)(FILE *stream);
 static off_t (*_libc_ftello)(FILE *stream);
@@ -31,6 +32,7 @@ static off64_t (*_libc_ftello64)(FILE *stream);
 #endif
 
 static int (*_libc_fclose)(FILE *stream);
+static int (*_libc_fileno)(FILE *stream);
 
 // Nonlocking stdio functions
 static size_t (*_libc_fwrite_unlocked)(const void *ptr, size_t size, size_t nmemb, FILE *stream);
@@ -39,6 +41,7 @@ static int (*_libc_fputs_unlocked)(const char *str, FILE *stream);
 static size_t (*_libc_fread_unlocked)(void *ptr, size_t size, size_t nmemb, FILE *stream);
 static int (*_libc_fgetc_unlocked)(FILE *stream);
 static char *(*_libc_fgets_unlocked)(char *str, int num, FILE *stream);
+static int (*_libc_fileno_unlocked)(FILE *stream);
 
 // POSIX functions
 static int (* _posix_open)(const char *pathname, int flags, ...);
